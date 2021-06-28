@@ -4,7 +4,7 @@ import-module $PSScriptRoot\..\AU
 Describe 'Update-AUPackages using streams' -Tag updateallstreams {
     $saved_pwd = $pwd
 
-    function global:nuspec_file() { [xml](gc $PSScriptRoot/test_package_with_streams/test_package_with_streams.nuspec) }
+    function global:nuspec_file() { [xml](Get-Content $PSScriptRoot/test_package_with_streams/test_package_with_streams.nuspec) }
     $pkg_no = 2
     $streams_no = $pkg_no * 3
 
@@ -12,20 +12,20 @@ Describe 'Update-AUPackages using streams' -Tag updateallstreams {
         $global:au_Root      = "TestDrive:\packages"
         $global:au_NoPlugins = $true
 
-        rm -Recurse $global:au_root -ea ignore
+        Remove-Item -Recurse $global:au_root -ea ignore
         foreach ( $i in 1..$pkg_no ) {
             $name = "test_package_with_streams_$i"
             $path = "$au_root\$name"
 
-            cp -Recurse -Force $PSScriptRoot\test_package_with_streams $path
+            Copy-Item -Recurse -Force $PSScriptRoot\test_package_with_streams $path
             $nu = nuspec_file
             $nu.package.metadata.id = $name
-            rm "$path\*.nuspec"
-            $nu.OuterXml | sc "$path\$name.nuspec"
-            mv "$path\test_package_with_streams.json" "$path\$name.json"
+            Remove-Item "$path\*.nuspec"
+            $nu.OuterXml | Set-Content "$path\$name.nuspec"
+            Move-Item "$path\test_package_with_streams.json" "$path\$name.json"
 
             $module_path = Resolve-Path $PSScriptRoot\..\AU
-            "import-module '$module_path' -Force", (gc $path\update.ps1 -ea ignore) | sc $path\update.ps1
+            "import-module '$module_path' -Force", (Get-Content $path\update.ps1 -ea ignore) | Set-Content $path\update.ps1
         }
 
         $Options = [ordered]@{}
@@ -33,9 +33,9 @@ Describe 'Update-AUPackages using streams' -Tag updateallstreams {
 
     Context 'Plugins' {
         It 'should ignore the package that returns "ignore"' {
-            gc $global:au_Root\test_package_with_streams_1\update.ps1 | set content
-            $content -replace 'update', "Write-Host 'test ignore'; 'ignore'" | set content
-            $content | sc $global:au_Root\test_package_with_streams_1\update.ps1
+            Get-Content $global:au_Root\test_package_with_streams_1\update.ps1 | Set-Variable content
+            $content -replace 'update', "Write-Host 'test ignore'; 'ignore'" | Set-Variable content
+            $content | Set-Content $global:au_Root\test_package_with_streams_1\update.ps1
 
             $res = updateall -Options $Options -NoPlugins:$false 6>$null
 
@@ -44,10 +44,10 @@ Describe 'Update-AUPackages using streams' -Tag updateallstreams {
         }
 
         It 'should execute text Report plugin' {
-            gc $global:au_Root\test_package_with_streams_1\update.ps1 | set content
-            $content -replace '@\{.+1\.3.+\}', "@{ Version = '1.3.2' }" | set content
-            $content -replace '@\{.+1\.2.+\}', "@{ Version = '1.2.4' }" | set content
-            $content | sc $global:au_Root\test_package_with_streams_1\update.ps1
+            Get-Content $global:au_Root\test_package_with_streams_1\update.ps1 | Set-Variable content
+            $content -replace '@\{.+1\.3.+\}', "@{ Version = '1.3.2' }" | Set-Variable content
+            $content -replace '@\{.+1\.2.+\}', "@{ Version = '1.2.4' }" | Set-Variable content
+            $content | Set-Content $global:au_Root\test_package_with_streams_1\update.ps1
 
             $Options.Report = @{
                 Type = 'text'
@@ -93,10 +93,10 @@ Describe 'Update-AUPackages using streams' -Tag updateallstreams {
         }
 
         It 'should execute markdown Report plugin' {
-            gc $global:au_Root\test_package_with_streams_1\update.ps1 | set content
-            $content -replace '@\{.+1\.3.+\}', "@{ Version = '1.3.2' }" | set content
-            $content -replace '@\{.+1\.2.+\}', "@{ Version = '1.2.4' }" | set content
-            $content | sc $global:au_Root\test_package_with_streams_1\update.ps1
+            Get-Content $global:au_Root\test_package_with_streams_1\update.ps1 | Set-Variable content
+            $content -replace '@\{.+1\.3.+\}', "@{ Version = '1.3.2' }" | Set-Variable content
+            $content -replace '@\{.+1\.2.+\}', "@{ Version = '1.2.4' }" | Set-Variable content
+            $content | Set-Content $global:au_Root\test_package_with_streams_1\update.ps1
 
             $Options.Report = @{
                 Type = 'markdown'
@@ -143,10 +143,10 @@ Describe 'Update-AUPackages using streams' -Tag updateallstreams {
         }
 
         It 'should execute GitReleases plugin when there are updates' {
-            gc $global:au_Root\test_package_with_streams_1\update.ps1 | set content
-            $content -replace '@\{.+1\.3.+\}', "@{ Version = '1.3.2' }" | set content
-            $content -replace '@\{.+1\.2.+\}', "@{ Version = '1.2.4' }" | set content
-            $content | sc $global:au_Root\test_package_with_streams_1\update.ps1
+            Get-Content $global:au_Root\test_package_with_streams_1\update.ps1 | Set-Variable content
+            $content -replace '@\{.+1\.3.+\}', "@{ Version = '1.3.2' }" | Set-Variable content
+            $content -replace '@\{.+1\.2.+\}', "@{ Version = '1.2.4' }" | Set-Variable content
+            $content | Set-Content $global:au_Root\test_package_with_streams_1\update.ps1
     
             $Options.GitReleases = @{
                 ApiToken    = 'apiToken'
@@ -174,12 +174,12 @@ Describe 'Update-AUPackages using streams' -Tag updateallstreams {
 
     It 'should update package with checksum verification mode' {
 
-        $choco_path = gcm choco.exe | % Source
-        $choco_hash = Get-FileHash $choco_path -Algorithm SHA256 | % Hash
-        gc $global:au_Root\test_package_with_streams_1\update.ps1 | set content
-        $content -replace '@\{.+1\.3.+\}', "@{ Version = '1.3.2'; ChecksumType32 = 'sha256'; Checksum32 = '$choco_hash'}" | set content
-        $content -replace 'update', "update -ChecksumFor 32" | set content
-        $content | sc $global:au_Root\test_package_with_streams_1\update.ps1
+        $choco_path = Get-Command choco.exe | ForEach-Object Source
+        $choco_hash = Get-FileHash $choco_path -Algorithm SHA256 | ForEach-Object Hash
+        Get-Content $global:au_Root\test_package_with_streams_1\update.ps1 | Set-Variable content
+        $content -replace '@\{.+1\.3.+\}', "@{ Version = '1.3.2'; ChecksumType32 = 'sha256'; Checksum32 = '$choco_hash'}" | Set-Variable content
+        $content -replace 'update', "update -ChecksumFor 32" | Set-Variable content
+        $content | Set-Content $global:au_Root\test_package_with_streams_1\update.ps1
 
         $res = updateall -Options $Options 6> $null
         $res.Count | Should Be $pkg_no
@@ -187,9 +187,9 @@ Describe 'Update-AUPackages using streams' -Tag updateallstreams {
     }
 
     It 'should limit update time' {
-        gc $global:au_Root\test_package_with_streams_1\update.ps1 | set content
-        $content -replace 'update', "sleep 10; update" | set content
-        $content | sc $global:au_Root\test_package_with_streams_1\update.ps1
+        Get-Content $global:au_Root\test_package_with_streams_1\update.ps1 | Set-Variable content
+        $content -replace 'update', "sleep 10; update" | Set-Variable content
+        $content | Set-Content $global:au_Root\test_package_with_streams_1\update.ps1
         $Options.UpdateTimeout = 5
 
         $res = updateall -Options $Options 3>$null 6> $null
@@ -201,19 +201,19 @@ Describe 'Update-AUPackages using streams' -Tag updateallstreams {
 
         $res = updateall -Options $Options 6> $null
 
-        lsau | measure | % Count | Should Be $pkg_no
+        lsau | Measure-Object | ForEach-Object Count | Should Be $pkg_no
         $res.Count | Should Be $pkg_no
         ($res.Result -match 'update is forced').Count | Should Be $pkg_no
-        ($res | ? Updated).Count | Should Be $pkg_no
+        ($res | Where-Object Updated).Count | Should Be $pkg_no
     }
 
     It 'should update no packages when none is newer' {
         $res = updateall 6> $null
 
-        lsau | measure | % Count | Should Be $pkg_no
+        lsau | Measure-Object | ForEach-Object Count | Should Be $pkg_no
         $res.Count | Should Be $pkg_no
         ($res.Result -match 'No new version found').Count | Should Be $streams_no
-        ($res | ? Updated).Count | Should Be 0
+        ($res | Where-Object Updated).Count | Should Be 0
     }
 
     $saved_pwd = $pwd

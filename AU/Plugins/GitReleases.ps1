@@ -25,7 +25,10 @@ param(
     [string]$dateFormat = '{0:yyyy-MM-dd}',
 
     # Force creating a release when a package have been updated and not just been pushed.
-    [switch]$Force
+    [switch]$Force,
+
+    # The name of the branch, to create the release at
+    [string]$Branch = 'master'
 )
 
 function GetOrCreateRelease() {
@@ -38,7 +41,7 @@ function GetOrCreateRelease() {
 
     try {
         Write-Verbose "Checking for a release using the tag: $tagName..."
-        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://api.github.com/repos/$repository/releases/tags/$tagName" -Headers $headers | ? tag_name -eq $tagName
+        $response = Invoke-RestMethod -UseBasicParsing -Uri "https://api.github.com/repos/$repository/releases/tags/$tagName" -Headers $headers | Where-Object tag_name -eq $tagName
         if ($response) {
             return $response
         }
@@ -48,7 +51,7 @@ function GetOrCreateRelease() {
 
     $json = @{
         "tag_name"         = $tagName
-        "target_commitish" = "master"
+        "target_commitish" = $Branch
         "name"             = $releaseName
         "body"             = $releaseDescription
         "draft"            = $false
@@ -65,9 +68,9 @@ if ($packages.Length -eq 0) { Write-Host "No package updated, skipping"; return 
 
 $packagesToRelease = New-Object 'System.Collections.Generic.List[hashtable]'
 
-$packages | % {
+$packages | ForEach-Object {
     if ($_.Streams) {
-        $_.Streams.Values | ? { $_.Updated } | % {
+        $_.Streams.Values | Where-Object { $_.Updated } | ForEach-Object {
             $packagesToRelease.Add(@{
                     Name          = $_.Name
                     NuspecVersion = $_.NuspecVersion
@@ -106,7 +109,7 @@ elseif (!$releaseHeader) {
 }
 
 if ($releaseType -eq 'date' -and !$releaseDescription) {
-    $releaseDescription = 'We had packages that was updated on <date>'
+    $releaseDescription = 'We had packages that were updated on <date>'
 }
 elseif (!$releaseDescription) {
     $releaseDescription = '<PackageName> was updated from version <NuspecVersion> to <RemoteVersion>'
@@ -131,7 +134,7 @@ if ($releaseType -eq 'date') {
 $uploadHeaders = $headers.Clone()
 $uploadHeaders['Content-Type'] = 'application/zip'
 
-$packagesToRelease | % {
+$packagesToRelease | ForEach-Object {
     # Because we grab all streams previously, we need to ignore
     # cases when a stream haven't been updated (no nupkg file created)
     if (!$_.NuFile) { return }
@@ -150,7 +153,7 @@ $packagesToRelease | % {
 
     $fileName = [System.IO.Path]::GetFileName($_.NuFile)
 
-    $existing = $release.assets | ? name -eq $fileName
+    $existing = $release.assets | Where-Object name -eq $fileName
     if ($existing) {
         Write-Verbose "Removing existing $fileName asset..."
         Invoke-RestMethod -UseBasicParsing -Uri $existing.url -method Delete -Headers $headers | Out-Null

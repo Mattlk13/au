@@ -10,22 +10,22 @@ $s = {
 }
 
 function git_4windows() {
-    if (!(gcm git -ea ignore)) { "Installing git"; cinst git }
+    if (!(Get-Command git -ea ignore)) { "Installing git"; cinst git }
     git --version
 }
 
 function pester() {
     "Installing pester"
 
-    inmo pester -Force #3.4.3
-    $version = gmo pester -ListAvailable | % { $_.Version.ToString() }
+    inmo pester -Force -MaximumVersion 4.10.1 #3.4.3
+    $version = Get-Module pester -ListAvailable | ForEach-Object { $_.Version.ToString() }
     "Pester version: $version"
 }
 
 function chocolatey() {
     "Installing chocolatey"
 
-    iwr https://chocolatey.org/install.ps1 -UseBasicParsing | iex
+    Invoke-WebRequest https://chocolatey.org/install.ps1 -UseBasicParsing | Invoke-Expression
     "Chocolatey version: $(choco -v)"
 }
 
